@@ -1,6 +1,7 @@
-import { React, useState } from "react";
+import {React, useState} from 'react';
 import {
-  Button, Modal,
+  Button,
+  Modal,
   NativeEventEmitter,
   NativeModules,
   PermissionsAndroid,
@@ -8,14 +9,15 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text, TextInput,
+  Text,
+  TextInput,
   View,
-} from "react-native";
-import AudioRecorderPlayer from "react-native-audio-recorder-player";
-import RNFS from "react-native-fs";
-import { FFmpegKit, FFmpegKitConfig, ReturnCode } from "ffmpeg-kit-react-native";
+} from 'react-native';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import RNFS from 'react-native-fs';
+import {FFmpegKit, FFmpegKitConfig, ReturnCode} from 'ffmpeg-kit-react-native';
 import {REACT_APP_API_KEY} from '@env';
-import { BlurView } from "@react-native-community/blur";
+import {BlurView} from '@react-native-community/blur';
 
 if (Platform.OS === 'android') {
   // Request record audio permission
@@ -37,8 +39,8 @@ const App = () => {
   const [logs, setLogs] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [targetPath, setTargetPath] = useState(' ');
-  const [modalTextInput, setModalTextInput] = useState(null)
-  const [key, setKey] = useState(null) //TODO search how to do caching in react native for api keys
+  const [modalTextInput, setModalTextInput] = useState(null);
+  const [key, setKey] = useState(null); //TODO search how to do caching in react native for api keys
 
   /**
     Function for converting PCM raw audio into MP3
@@ -150,7 +152,8 @@ const App = () => {
                 AudioModule.startRecording();
                 // Subscribe to native events
                 audioModuleEvents.addListener('AudioModule', async update => {
-                  const targetPath = RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
+                  const targetPath =
+                    RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
                   console.log('Audio written to: ' + update);
                   await convertPcmToMp3(update);
                   console.log('newPath: ' + targetPath);
@@ -221,15 +224,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 22,
-    padding: 33
+    padding: 33,
   },
   absolute: {
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
-    right: 0
-  }
+    right: 0,
+  },
 });
 
 export default App;
