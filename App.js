@@ -36,7 +36,7 @@ const App = () => {
   const [results, setResults] = useState('-----Begin Transcribing-----');
   const [logs, setLogs] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [targetPath, setTargetPath] = useState(null);
+  const [targetPath, setTargetPath] = useState(' ');
   const [modalTextInput, setModalTextInput] = useState(null)
   const [key, setKey] = useState(null) //TODO search how to do caching in react native for api keys
 
@@ -45,7 +45,6 @@ const App = () => {
    */
   const convertPcmToMp3 = async uri => {
     const filepath = RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
-    console.log(filepath);
 
     // Handle FFmpegKit initialization if needed
     await FFmpegKitConfig.enableRedirection();
@@ -63,7 +62,7 @@ const App = () => {
           console.log(
             'Conversion successful:' + (await session.getReturnCode()),
           );
-          setTargetPath(filepath);
+          await setTargetPath(filepath);
           return filepath;
         } else {
           console.error(
@@ -83,7 +82,6 @@ const App = () => {
    */
   const whisperRestCall = async uri => {
     try {
-      console.log(REACT_APP_API_KEY)
       const data = new FormData();
       data.append('model', 'whisper-1');
       data.append('file', {
@@ -115,10 +113,7 @@ const App = () => {
 
   return (
     <SafeAreaView style={styles.background}>
-      <Modal
-        visible={key == null}
-        transparent={true}
-      >
+      <Modal visible={key == null} transparent={true}>
         <View style={styles.modalViewOuter}>
           <BlurView
             style={styles.absolute}
@@ -126,15 +121,20 @@ const App = () => {
             blurAmount={10}
             reducedTransparencyFallbackColor="white"
           />
-          <Text>Enter your API key retrieved from OpenAPI. Please note that this key will only be stored on your local device, and not by us! </Text>
+          <Text>
+            Enter your API key retrieved from OpenAPI. Please note that this key
+            will only be stored on your local device, and not by us!{' '}
+          </Text>
           <TextInput
+            style={{borderWidth: 1, padding: 10, width: 350, margin: 12}}
             onChangeText={setModalTextInput}
           />
           <Button
-            title={"Enter"}
+            title={'Enter'}
             onPress={() => {
               setKey(modalTextInput);
-            }}/>
+            }}
+          />
         </View>
       </Modal>
       <Text style={styles.header}>Speech Transcriber</Text>
@@ -149,23 +149,22 @@ const App = () => {
                 await setIsRecording(true);
                 AudioModule.startRecording();
                 // Subscribe to native events
-                audioModuleEvents.addListener('AudioModule', update => {
+                audioModuleEvents.addListener('AudioModule', async update => {
+                  const targetPath = RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
                   console.log('Audio written to: ' + update);
-                  convertPcmToMp3(update)
-                    .then(res => {
-                      return whisperRestCall(res);
-                    })
-                    .then(res => {
-                      if (
-                        res !== ' ' ||
-                        res !== '' ||
-                        res !== undefined ||
-                        res !== 'undefined' ||
-                        res !== '\n'
-                      ) {
-                        setResults(currentText => currentText + ' ' + res);
-                      }
-                    });
+                  await convertPcmToMp3(update);
+                  console.log('newPath: ' + targetPath);
+                  const res = await whisperRestCall(targetPath);
+                  console.log('res :' + res);
+                  if (
+                    res !== ' ' ||
+                    res !== '' ||
+                    res !== undefined ||
+                    res !== 'undefined' ||
+                    res !== '\n'
+                  ) {
+                    setResults(currentText => currentText + ' ' + res);
+                  }
                 });
               } else if (isRecording) {
                 await setIsRecording(false);
@@ -214,6 +213,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 22,
+    flexDirection: 'column',
   },
   modalViewInner: {
     flex: 1,
