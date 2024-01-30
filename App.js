@@ -159,13 +159,7 @@ const App = () => {
                   console.log('newPath: ' + targetPath);
                   const res = await whisperRestCall(targetPath);
                   console.log('res :' + res);
-                  if (
-                    res !== ' ' ||
-                    res !== '' ||
-                    res !== undefined ||
-                    res !== 'undefined' ||
-                    res !== '\n'
-                  ) {
+                  if (!blacklist.includes(res)) {
                     setResults(currentText => currentText + ' ' + res);
                   }
                 });
@@ -177,13 +171,26 @@ const App = () => {
             }}
           />
         </View>
-        <ScrollView>
+        <ScrollView
+          ref={ref => (this.scrollView = ref)}
+          onContentSizeChange={(contentWidth, contentHeight) => {
+            this.scrollView.scrollToEnd({animated: true});
+          }}>
           <Text style={styles.results}>{results}</Text>
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 };
+
+const blacklist = [
+  ' ',
+  '',
+  undefined,
+  'undefined',
+  '\n',
+  'Go to Beadaholique.com for all of your beading supply needs!',
+];
 
 const styles = StyleSheet.create({
   background: {

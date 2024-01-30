@@ -17,10 +17,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.time.Instant;
 
 public class AudioModule extends ReactContextBaseJavaModule {
 
+    private static final long MAX_BUFFER_SIZE = 10000 ;
     //Variables used for obtaining the minimum Buffer size required for the creation of an AudioRecord Object
     private int frequency = 44100; //8000;
     private int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;
@@ -31,7 +32,8 @@ public class AudioModule extends ReactContextBaseJavaModule {
     private Boolean isRecording = false;
     public AudioRecord audioRecord;
     //Second AudioRecord object with smaller buffer to check if input in device is silent
-    //public AudioRecord silenceCheck;
+    public AudioRecord silenceCheck;
+    private Boolean isIncomingAudioSilent = true;
     AudioModule context = this;
 
     public AudioModule(ReactApplicationContext context) {
@@ -48,14 +50,15 @@ public class AudioModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void startRecording() throws IOException {
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 40; //TODO BUFFERSIZE = < 2 seconds
-        //silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
+                * 400; //TODO BUFFERSIZE = < 20 seconds
+        silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, frequency, channelConfiguration, audioEncoding, bufferSize);
-        //silenceCheck = new AudioRecord(MediaRecorder.AudioSource.MIC, frequency, channelConfiguration, audioEncoding, silenceBufferSize);
+        silenceCheck = new AudioRecord(MediaRecorder.AudioSource.MIC, frequency, channelConfiguration, audioEncoding, silenceBufferSize);
+
         audioRecord.startRecording();
-        //silenceCheck.startRecording();
+        silenceCheck.startRecording();
         isRecording = true;
 
         new Thread(() -> {
@@ -89,34 +92,64 @@ public class AudioModule extends ReactContextBaseJavaModule {
     public void detectSilence() throws IOException, InterruptedException {
         Log.d("AudioModule", "Calling detectSilence method...");
         short[] buffer = new short[bufferSize];
-        short[] silentBuffer = new short[silenceBufferSize];
+        short[] silenceBuffer = new short[silenceBufferSize];
+        Instant start = Instant.now();
 
         while (isRecording) {
-            //Check for silence
-            //int silentBufferReadResult = silenceCheck.read(silentBuffer,0,silenceBufferSize);
 
-            // Read audio from microphone
-            int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
-            if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
-                Boolean isSilent = readIfBufferIsSilent(buffer, bufferReadResult);
-                //If not silent, write buffer
-                if (!isSilent){
-//                    new Thread(() -> {
-                        try {
-                            //Write file and emit filename as an event
-                            Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
-                            String filename = writeToFile(buffer, bufferReadResult);
-                            context.getReactApplicationContext()
-                                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                                    .emit("AudioModule", filename);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-//                    }).start();
-                } else {
-                    Log.i("AudioModule", "Silence detected");
+            //Check for when to begin tracking silence, in case main recording starts off silent
+            while (isIncomingAudioSilent){
+                int silenceBufferReadResult = silenceCheck.read(silenceBuffer,0,silenceBufferSize);
+                boolean res = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
+                if (res == false) {
+                    Log.i("AudioModule", "FALSE");
+                    isIncomingAudioSilent = false;
+                    break;
                 }
             }
+
+            // Read audio from microphone
+            int silenceBufferReadResult = silenceCheck.read(silenceBuffer,0,silenceBufferSize);
+            boolean res = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
+            Log.i("AudioModule", String.valueOf(res));
+
+            // If silence detected, slice main buffer
+            if (res){
+                int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
+                    if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
+                        try {
+                                //Write file and emit filename as an event
+                                Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
+                                String filename = writeToFile(buffer, bufferReadResult);
+                                context.getReactApplicationContext()
+                                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                                        .emit("AudioModule", filename);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                    }
+            }
+
+
+//            int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
+//            if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
+//                Boolean isSilent = readIfBufferIsSilent(buffer, bufferReadResult);
+//                //If not silent, write buffer
+//                if (!isSilent){
+//                        try {
+//                            //Write file and emit filename as an event
+//                            Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
+//                            String filename = writeToFile(buffer, bufferReadResult);
+//                            context.getReactApplicationContext()
+//                                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+//                                    .emit("AudioModule", filename);
+//                        } catch (Exception e) {
+//                            throw new RuntimeException(e);
+//                        }
+//                } else {
+//                    Log.i("AudioModule", "Silence detected");
+//                }
+//            }
         }
     }
 
