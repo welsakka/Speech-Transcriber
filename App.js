@@ -38,6 +38,7 @@ const App = () => {
   const [results, setResults] = useState('-----Begin Transcribing-----');
   const [logs, setLogs] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingFunction, setRecordingFunction] = useState();
   const [targetPath, setTargetPath] = useState(' ');
   const [modalTextInput, setModalTextInput] = useState(null);
   const [key, setKey] = useState(null); //TODO search how to do caching in react native for api keys
@@ -106,12 +107,41 @@ const App = () => {
       );
 
       const json = await res.json();
-      console.log('Whisper response is: ' + json['text']);
-      return json['text'];
+      console.log('Whisper response is: ' + json.text);
+      return json.text;
     } catch (err) {
       console.log('Error caught in Whisper Rest API call: ', err);
     }
   };
+
+  /**
+   * Function for listening to Android AudioRecorder Events
+   */
+  const androidAudioRecorderListener = async () => {
+    if (!isRecording) {
+      await setResults('-----Begin Transcribing-----' + '\n');
+      await setIsRecording(true);
+      AudioModule.startRecording();
+      // Subscribe to native events
+      audioModuleEvents.addListener('AudioModule', async update => {
+        const targetPath = RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
+        console.log('Audio written to: ' + update);
+        await convertPcmToMp3(update);
+        console.log('newPath: ' + targetPath);
+        const res = await whisperRestCall(targetPath);
+        console.log('res :' + res);
+        if (!blacklist.includes(res)) {
+          setResults(currentText => currentText + ' ' + res);
+        }
+      });
+    } else if (isRecording) {
+      await setIsRecording(false);
+      await AudioModule.stopRecording();
+      audioModuleEvents.removeAllListeners('AudioModule');
+      console.log('Ending recording.');
+    }
+  };
+
 
   return (
     <SafeAreaView style={styles.background}>
@@ -145,31 +175,7 @@ const App = () => {
         <View style={styles.button}>
           <Button
             title={isRecording ? '   Stop Recording   ' : '   Begin   '}
-            onPress={async () => {
-              if (!isRecording) {
-                await setResults('-----Begin Transcribing-----' + '\n');
-                await setIsRecording(true);
-                AudioModule.startRecording();
-                // Subscribe to native events
-                audioModuleEvents.addListener('AudioModule', async update => {
-                  const targetPath =
-                    RNFS.DocumentDirectoryPath + '/reactaudio.mp3';
-                  console.log('Audio written to: ' + update);
-                  await convertPcmToMp3(update);
-                  console.log('newPath: ' + targetPath);
-                  const res = await whisperRestCall(targetPath);
-                  console.log('res :' + res);
-                  if (!blacklist.includes(res)) {
-                    setResults(currentText => currentText + ' ' + res);
-                  }
-                });
-              } else if (isRecording) {
-                await setIsRecording(false);
-                await AudioModule.stopRecording();
-                audioModuleEvents.removeAllListeners();
-                console.log('Ending recording.');
-              }
-            }}
+            onPress={() => {androidAudioRecorderListener()}}
           />
         </View>
         <ScrollView
@@ -192,6 +198,7 @@ const blacklist = [
   '\n',
   'Go to Beadaholique.com for all of your beading supply needs!',
   'Thank you for watching!',
+  'Thank you for watching.',
 ];
 
 const styles = StyleSheet.create({
