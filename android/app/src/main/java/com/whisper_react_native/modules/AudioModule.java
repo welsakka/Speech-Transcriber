@@ -26,7 +26,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
     private int frequency = 44100; //8000;
     private int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;
     private int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
-    private short threshold = 65; //TODO : TEST LOW THRESHOLD
+    private short threshold = 100; //TODO : TEST LOW THRESHOLD
     private int bufferSize;
     private int silenceBufferSize;
     private Boolean isRecording = false;
@@ -49,8 +49,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
     @SuppressLint("MissingPermission")
     @ReactMethod
     public void startRecording() throws IOException {
+        //Default buffer size is about .04 seconds
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 400; //TODO BUFFERSIZE = < 20 seconds
+                * 200; //TODO BUFFERSIZE = 10 seconds
         silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
@@ -129,27 +130,6 @@ public class AudioModule extends ReactContextBaseJavaModule {
                             }
                     }
             }
-
-
-//            int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
-//            if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
-//                Boolean isSilent = readIfBufferIsSilent(buffer, bufferReadResult);
-//                //If not silent, write buffer
-//                if (!isSilent){
-//                        try {
-//                            //Write file and emit filename as an event
-//                            Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
-//                            String filename = writeToFile(buffer, bufferReadResult);
-//                            context.getReactApplicationContext()
-//                                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-//                                    .emit("AudioModule", filename);
-//                        } catch (Exception e) {
-//                            throw new RuntimeException(e);
-//                        }
-//                } else {
-//                    Log.i("AudioModule", "Silence detected");
-//                }
-//            }
         }
     }
 
@@ -192,9 +172,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void stopRecording() {
         audioRecord.stop();
-        //silenceCheck.stop();
+        silenceCheck.stop();
         audioRecord.release();
-        //silenceCheck.release();
+        silenceCheck.release();
         isRecording = false;
     }
 }

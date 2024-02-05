@@ -166,6 +166,7 @@ const App = () => {
               } else if (isRecording) {
                 await setIsRecording(false);
                 await AudioModule.stopRecording();
+                audioModuleEvents.removeAllListeners();
                 console.log('Ending recording.');
               }
             }}
@@ -190,6 +191,7 @@ const blacklist = [
   'undefined',
   '\n',
   'Go to Beadaholique.com for all of your beading supply needs!',
+  'Thank you for watching!',
 ];
 
 const styles = StyleSheet.create({
