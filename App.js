@@ -1,4 +1,4 @@
-import {React, useState} from 'react';
+import { React, useEffect, useState } from "react";
 import {
   Button,
   Modal,
@@ -13,11 +13,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import {FFmpegKit, FFmpegKitConfig, ReturnCode} from 'ffmpeg-kit-react-native';
 import {REACT_APP_API_KEY} from '@env';
 import {BlurView} from '@react-native-community/blur';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 if (Platform.OS === 'android') {
   // Request record audio permission
@@ -29,7 +29,6 @@ if (Platform.OS === 'android') {
   ]);
 }
 
-const audioRecorderPlayer = new AudioRecorderPlayer();
 const {AudioModule} = NativeModules;
 const audioModuleEvents = new NativeEventEmitter(AudioModule);
 const ERROR_LEVEL = 3;
@@ -38,10 +37,56 @@ const App = () => {
   const [results, setResults] = useState('-----Begin Transcribing-----');
   const [logs, setLogs] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingFunction, setRecordingFunction] = useState();
   const [targetPath, setTargetPath] = useState(' ');
   const [modalTextInput, setModalTextInput] = useState(null);
-  const [key, setKey] = useState(null); //TODO search how to do caching in react native for api keys
+  const [apiKey, setApiKey] = useState(null);
+
+  //Used to filter output from Whisper AI that it believes is silence
+  const silenceThreshold = 0.5;
+
+  useEffect(() => {
+    getData('api').then(res => {
+      setApiKey(res);
+    });
+  }, []);
+
+  /**
+   * Saving data to AsyncStorage
+   * @param key
+   * @param value
+   * @returns {Promise<void>}
+   */
+  const saveData = async (key, value) => {
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.error('Error saving data to AsyncStorage:', error);
+    }
+  };
+
+  /**
+   * Retrieving data from AsyncStorage
+   * @param key
+   * @returns {Promise<*|null>}
+   */
+  const getData = async key => {
+    try {
+      console.log('key:' + key);
+      const value = await AsyncStorage.getItem(key);
+      if (value !== null) {
+        // Data found in cache
+        console.log('value: ' + value);
+        return value;
+      } else {
+        // Data not found in cache
+        console.log('value null');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error retrieving data from AsyncStorage:', error);
+      return null;
+    }
+  };
 
   /**
     Function for converting PCM raw audio into MP3
@@ -93,12 +138,13 @@ const App = () => {
         name: 'reactaudio.mp3',
       });
       data.append('language', 'en');
+      data.append('response_format', 'verbose_json');
       const res = await fetch(
         'https://api.openai.com/v1/audio/transcriptions',
         {
           method: 'POST',
           headers: {
-            Authorization: 'Bearer ' + REACT_APP_API_KEY,
+            Authorization: 'Bearer ' + apiKey,
             'Content-Type': 'multipart/form-data',
             Accept: 'application/json',
           },
@@ -108,6 +154,10 @@ const App = () => {
 
       const json = await res.json();
       console.log('Whisper response is: ' + json.text);
+      const speechProbability = json.segments[0].no_speech_prob;
+      if (speechProbability > silenceThreshold) {
+        return '...';
+      }
       return json.text;
     } catch (err) {
       console.log('Error caught in Whisper Rest API call: ', err);
@@ -142,10 +192,9 @@ const App = () => {
     }
   };
 
-
   return (
     <SafeAreaView style={styles.background}>
-      <Modal visible={key == null} transparent={true}>
+      <Modal visible={apiKey == null} transparent={true}>
         <View style={styles.modalViewOuter}>
           <BlurView
             style={styles.absolute}
@@ -159,12 +208,15 @@ const App = () => {
           </Text>
           <TextInput
             style={{borderWidth: 1, padding: 10, width: 350, margin: 12}}
-            onChangeText={setModalTextInput}
+            onChangeText={text => {
+              setModalTextInput(text);
+            }}
           />
           <Button
             title={'Enter'}
             onPress={() => {
-              setKey(modalTextInput);
+              saveData('api', modalTextInput);
+              setApiKey(modalTextInput);
             }}
           />
         </View>
@@ -175,7 +227,11 @@ const App = () => {
         <View style={styles.button}>
           <Button
             title={isRecording ? '   Stop Recording   ' : '   Begin   '}
-            onPress={() => {androidAudioRecorderListener()}}
+            onPress={() => {
+              if (Platform.OS === 'android') {androidAudioRecorderListener();}
+              else if (Platform.OS === 'ios') { //iosAudioRecorderListener();
+                 }
+            }}
           />
         </View>
         <ScrollView
@@ -199,6 +255,7 @@ const blacklist = [
   'Go to Beadaholique.com for all of your beading supply needs!',
   'Thank you for watching!',
   'Thank you for watching.',
+  'Thank you for watching my video. Don\'t forget to subscribe to my channel. Bye.',
 ];
 
 const styles = StyleSheet.create({

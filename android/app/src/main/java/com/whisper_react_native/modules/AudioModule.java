@@ -51,7 +51,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
     public void startRecording() throws IOException {
         //Default buffer size is about .04 seconds
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 200; //TODO BUFFERSIZE = 10 seconds
+                * 50; //TODO BUFFERSIZE = 2.5 seconds
         silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
@@ -94,7 +94,6 @@ public class AudioModule extends ReactContextBaseJavaModule {
         Log.d("AudioModule", "Calling detectSilence method...");
         short[] buffer = new short[bufferSize];
         short[] silenceBuffer = new short[silenceBufferSize];
-        Instant start = Instant.now();
 
         while (isRecording) {
 
@@ -103,7 +102,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
                 int silenceBufferReadResult = silenceCheck.read(silenceBuffer,0,silenceBufferSize);
                 boolean res = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
                 if (res == false) {
-                    Log.i("AudioModule", "FALSE");
+                    Log.i("AudioModule", "Silence broken, beginning audio capture");
                     isIncomingAudioSilent = false;
                     break;
                 }
