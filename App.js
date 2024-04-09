@@ -12,12 +12,11 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import RNFS from 'react-native-fs';
-import {FFmpegKit, FFmpegKitConfig, ReturnCode} from 'ffmpeg-kit-react-native';
-import {REACT_APP_API_KEY} from '@env';
-import {BlurView} from '@react-native-community/blur';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+} from "react-native";
+import RNFS from "react-native-fs";
+import { FFmpegKit, FFmpegKitConfig, ReturnCode } from "ffmpeg-kit-react-native";
+import { BlurView } from "@react-native-community/blur";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 if (Platform.OS === 'android') {
   // Request record audio permission
@@ -42,7 +41,7 @@ const App = () => {
   const [apiKey, setApiKey] = useState(null);
 
   //Used to filter output from Whisper AI that it believes is silence
-  const silenceThreshold = 0.5;
+  const silenceThreshold = 0.75;
 
   useEffect(() => {
     getData('api').then(res => {
@@ -151,18 +150,28 @@ const App = () => {
           body: data,
         },
       );
-
       const json = await res.json();
-      console.log('Whisper response is: ' + json.text);
-      const speechProbability = json.segments[0].no_speech_prob;
-      if (speechProbability > silenceThreshold) {
-        return '...';
-      }
-      return json.text;
+      console.log('Full response is: ' + json);
+      return json;
     } catch (err) {
       console.log('Error caught in Whisper Rest API call: ', err);
     }
   };
+
+  /**
+   * Function for filtering out Whisper AI results for noise
+   * @param result
+   * @returns {Promise<*|string>}
+   */
+  const filterResult = async (result) => {
+    console.log('Whisper response is: ' + result.text);
+    if (results.segments[0].isEmptyArray())
+    const speechProbability = result.segments[0].no_speech_prob;
+    if (speechProbability > silenceThreshold) {
+      return '';
+    }
+    return result.text;
+  }
 
   /**
    * Function for listening to Android AudioRecorder Events
@@ -179,9 +188,10 @@ const App = () => {
         await convertPcmToMp3(update);
         console.log('newPath: ' + targetPath);
         const res = await whisperRestCall(targetPath);
-        console.log('res :' + res);
-        if (!blacklist.includes(res)) {
-          setResults(currentText => currentText + ' ' + res);
+        const text = await filterResult(res);
+        console.log('res :' + text);
+        if (!blacklist.includes(text)) {
+          setResults(currentText => currentText + ' ' + text);
         }
       });
     } else if (isRecording) {

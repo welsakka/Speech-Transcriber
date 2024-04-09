@@ -17,22 +17,29 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.time.Instant;
+import java.nio.ByteBuffer;
 
+/**
+ * This Module manages the realtime streaming data from the device microphone and processes it into a readable file from a byte stream
+ * The Module uses two buffers, a main buffer and a silent check buffer. The main buffer captures the realtime sound.
+ * The silent check buffer is a small buffer that checks every .04 seconds if the incoming sound is silent.
+ * This helps to determine when to make a Whisper API call, when there is a break in speech.
+ */
 public class AudioModule extends ReactContextBaseJavaModule {
 
     private static final long MAX_BUFFER_SIZE = 10000 ;
-    //Variables used for obtaining the minimum Buffer size required for the creation of an AudioRecord Object
+    /*
+    Variables used for obtaining the minimum Buffer size required for the creation of an AudioRecord Object
+     */
     private int frequency = 44100; //8000;
     private int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;
     private int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
-    private short threshold = 100; //TODO : TEST LOW THRESHOLD
+    private short threshold = 400; //Determines the threshold between silence and incoming sound
     private int bufferSize;
     private int silenceBufferSize;
     private Boolean isRecording = false;
     public AudioRecord audioRecord;
-    //Second AudioRecord object with smaller buffer to check if input in device is silent
-    public AudioRecord silenceCheck;
+    public AudioRecord silenceCheck; //Second AudioRecord object with smaller buffer to check if input in device is silent
     private Boolean isIncomingAudioSilent = true;
     AudioModule context = this;
 
@@ -49,9 +56,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
     @SuppressLint("MissingPermission")
     @ReactMethod
     public void startRecording() throws IOException {
-        //Default buffer size is about .04 seconds
+        //Minimum buffer size is about .04 seconds
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 50; //TODO BUFFERSIZE = 2.5 seconds
+                * 300; //TODO BUFFERSIZE = 12 seconds
         silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
@@ -64,7 +71,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
 
         new Thread(() -> {
             try {
-                detectSilence();
+                readBufferResult();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             } catch (InterruptedException e) {
@@ -73,7 +80,10 @@ public class AudioModule extends ReactContextBaseJavaModule {
         }).start();
     }
 
-    // Function to determine if a buffer contains mostly silent sound
+    /*
+    Function to determine if a buffer contains mostly silent sound.
+    Calculates the average amplitude of the buffer to determine if silent
+     */
     public boolean readIfBufferIsSilent(short[] buffer, int bufferReadResult){
         boolean isBufferSilent;
         // Calculate average amplitude
@@ -90,12 +100,17 @@ public class AudioModule extends ReactContextBaseJavaModule {
         return isBufferSilent;
     }
 
-    public void detectSilence() throws IOException, InterruptedException {
+    /*
+    Checks data in buffer and determines when to process to file
+     */
+    public void readBufferResult() throws IOException, InterruptedException {
         Log.d("AudioModule", "Calling detectSilence method...");
-        short[] buffer = new short[bufferSize];
         short[] silenceBuffer = new short[silenceBufferSize];
 
         while (isRecording) {
+            //Initialize new main buffer every silence check
+            byte[] buffer = new byte[bufferSize];
+            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
 
             //Check for when to begin tracking silence, in case main recording starts off silent
             while (isIncomingAudioSilent){
@@ -108,14 +123,14 @@ public class AudioModule extends ReactContextBaseJavaModule {
                 }
             }
 
-            // Read audio from microphone
+            // Realtime silence check on incoming audio
             int silenceBufferReadResult = silenceCheck.read(silenceBuffer,0,silenceBufferSize);
-            boolean res = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
-            Log.i("AudioModule", String.valueOf(res));
+            boolean silent = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
+            Log.i("AudioModule", String.valueOf(silent));
 
-            // If silence detected, slice main buffer
-            if (res){
-                int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
+            // If silence detected, read main buffer
+            if (silent){
+                int bufferReadResult = audioRecord.read(byteBuffer, 0);
                     if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
                         try {
                                 //Write file and emit filename as an event
@@ -132,6 +147,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
         }
     }
 
+    /*
+    Converts data in byte array to a file for device to send in API call
+     */
     String writeToFile(short[] buffer, int bufferReadResult) throws IOException {
 
         File outputFile = new File(context.getReactApplicationContext().getFilesDir(), "audio_output.pcm");
@@ -151,6 +169,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
         }
     }
 
+    /*
+    Utility function to convert short array to byte array
+     */
     byte[] shortToByte(short [] input, int elements) {
         int short_index, byte_index;
         int iterations = elements; //input.length;
