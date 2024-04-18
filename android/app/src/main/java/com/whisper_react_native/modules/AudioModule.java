@@ -10,6 +10,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
+import android.media.AudioTimestamp;
 import android.media.MediaRecorder;
 import android.util.Log;
 
@@ -17,7 +18,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * This Module manages the realtime streaming data from the device microphone and processes it into a readable file from a byte stream
@@ -104,13 +104,14 @@ public class AudioModule extends ReactContextBaseJavaModule {
     Checks data in buffer and determines when to process to file
      */
     public void readBufferResult() throws IOException, InterruptedException {
-        Log.d("AudioModule", "Calling detectSilence method...");
+        Log.d("AudioModule", "Calling readBufferResult method...");
         short[] silenceBuffer = new short[silenceBufferSize];
+        short[] buffer = new short[bufferSize];
 
         while (isRecording) {
             //Initialize new main buffer every silence check
-            byte[] buffer = new byte[bufferSize];
-            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
+//            byte[] buffer = new byte[bufferSize];
+//            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
 
             //Check for when to begin tracking silence, in case main recording starts off silent
             while (isIncomingAudioSilent){
@@ -130,19 +131,24 @@ public class AudioModule extends ReactContextBaseJavaModule {
 
             // If silence detected, read main buffer
             if (silent){
-                int bufferReadResult = audioRecord.read(byteBuffer, 0);
+                new Thread(() -> {
+                    AudioTimestamp audioTimestamp = new AudioTimestamp();
+                    audioRecord.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC);
+                    Log.i("AudioModule - readBufferResult", String.valueOf(audioTimestamp.nanoTime));
+                    int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
                     if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
                         try {
-                                //Write file and emit filename as an event
-                                Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
-                                String filename = writeToFile(buffer, bufferReadResult);
-                                context.getReactApplicationContext()
-                                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                                        .emit("AudioModule", filename);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
+                            //Write file and emit filename as an event
+                            Log.i("AudioModule", "BufferReadResult is : " + bufferReadResult);
+                            String filename = writeToFile(buffer, bufferReadResult);
+                            context.getReactApplicationContext()
+                                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                                    .emit("AudioModule", filename);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
                     }
+                }).start();
             }
         }
     }

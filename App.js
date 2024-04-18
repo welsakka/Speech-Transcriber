@@ -165,13 +165,13 @@ const App = () => {
    */
   const filterResult = async (result) => {
     console.log('Whisper response is: ' + result.text);
-    if (results.segments[0].isEmptyArray())
+    // if (results.segments[0].isEmptyArray())
     const speechProbability = result.segments[0].no_speech_prob;
     if (speechProbability > silenceThreshold) {
       return '';
     }
     return result.text;
-  }
+  };
 
   /**
    * Function for listening to Android AudioRecorder Events
