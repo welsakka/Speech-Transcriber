@@ -43,6 +43,7 @@ const App = () => {
   //Used to filter output from Whisper AI that it believes is silence
   const silenceThreshold = 0.75;
 
+  // Receive API key for whisper API in cache if available
   useEffect(() => {
     getData('api').then(res => {
       setApiKey(res);

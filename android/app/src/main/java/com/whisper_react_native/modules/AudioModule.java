@@ -58,7 +58,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
     public void startRecording() throws IOException {
         //Minimum buffer size is about .04 seconds
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 300; //TODO BUFFERSIZE = 12 seconds
+                * 200; //TODO BUFFERSIZE = 8 seconds
         silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
@@ -127,15 +127,16 @@ public class AudioModule extends ReactContextBaseJavaModule {
             // Realtime silence check on incoming audio
             int silenceBufferReadResult = silenceCheck.read(silenceBuffer,0,silenceBufferSize);
             boolean silent = readIfBufferIsSilent(silenceBuffer, silenceBufferReadResult);
-            Log.i("AudioModule", String.valueOf(silent));
 
             // If silence detected, read main buffer
             if (silent){
-                new Thread(() -> {
-                    AudioTimestamp audioTimestamp = new AudioTimestamp();
-                    audioRecord.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC);
-                    Log.i("AudioModule - readBufferResult", String.valueOf(audioTimestamp.nanoTime));
+                    Log.i("AudioModule - readBufferResult", "Silence Detected, reading main buffer...");
+//                new Thread(() -> {
+//                    AudioTimestamp audioTimestamp = new AudioTimestamp();
+//                    audioRecord.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC);
+//                    Log.i("AudioModule - readBufferResult", "Time stamp is " + String.valueOf(audioTimestamp.nanoTime));
                     int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
+                    Log.i("AudioModule - readBufferResult", "Main Buffer Read");
                     if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {
                         try {
                             //Write file and emit filename as an event
@@ -148,8 +149,9 @@ public class AudioModule extends ReactContextBaseJavaModule {
                             throw new RuntimeException(e);
                         }
                     }
-                }).start();
+//                }).start();
             }
+            isIncomingAudioSilent = true; // Set back to true to determine when to listen again
         }
     }
 
@@ -202,5 +204,6 @@ public class AudioModule extends ReactContextBaseJavaModule {
         audioRecord.release();
         silenceCheck.release();
         isRecording = false;
+        isIncomingAudioSilent = false;
     }
 }
