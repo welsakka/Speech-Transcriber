@@ -34,7 +34,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
     private int frequency = 44100; //8000;
     private int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;
     private int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
-    private short threshold = 400; //Determines the threshold between silence and incoming sound
+    private short threshold = 1000; //Determines the threshold between silence and incoming sound
     private int bufferSize;
     private int silenceBufferSize;
     private Boolean isRecording = false;
@@ -58,7 +58,7 @@ public class AudioModule extends ReactContextBaseJavaModule {
     public void startRecording() throws IOException {
         //Minimum buffer size is about .04 seconds
         bufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding)
-                * 200; //TODO BUFFERSIZE = 8 seconds
+                * 100; //TODO BUFFERSIZE = 4 seconds
         silenceBufferSize = AudioRecord.getMinBufferSize(frequency, channelConfiguration, audioEncoding);
 
         //Permission check handled from React Native code
@@ -109,9 +109,6 @@ public class AudioModule extends ReactContextBaseJavaModule {
         short[] buffer = new short[bufferSize];
 
         while (isRecording) {
-            //Initialize new main buffer every silence check
-//            byte[] buffer = new byte[bufferSize];
-//            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
 
             //Check for when to begin tracking silence, in case main recording starts off silent
             while (isIncomingAudioSilent){
@@ -132,9 +129,6 @@ public class AudioModule extends ReactContextBaseJavaModule {
             if (silent){
                     Log.i("AudioModule - readBufferResult", "Silence Detected, reading main buffer...");
 //                new Thread(() -> {
-//                    AudioTimestamp audioTimestamp = new AudioTimestamp();
-//                    audioRecord.getTimestamp(audioTimestamp, AudioTimestamp.TIMEBASE_MONOTONIC);
-//                    Log.i("AudioModule - readBufferResult", "Time stamp is " + String.valueOf(audioTimestamp.nanoTime));
                     int bufferReadResult = audioRecord.read(buffer, 0, bufferSize);
                     Log.i("AudioModule - readBufferResult", "Main Buffer Read");
                     if (AudioRecord.ERROR_INVALID_OPERATION != bufferReadResult) {

@@ -41,7 +41,7 @@ const App = () => {
   const [apiKey, setApiKey] = useState(null);
 
   //Used to filter output from Whisper AI that it believes is silence
-  const silenceThreshold = 0.75;
+  const silenceThreshold = 0.25;
 
   // Receive API key for whisper API in cache if available
   useEffect(() => {
@@ -152,7 +152,6 @@ const App = () => {
         },
       );
       const json = await res.json();
-      console.log('Full response is: ' + json);
       return json;
     } catch (err) {
       console.log('Error caught in Whisper Rest API call: ', err);
@@ -167,8 +166,9 @@ const App = () => {
   const filterResult = async (result) => {
     console.log('Whisper response is: ' + result.text);
     // if (results.segments[0].isEmptyArray())
-    const speechProbability = result.segments[0].no_speech_prob;
-    if (speechProbability > silenceThreshold) {
+    const noSpeechProbability = result.segments[0].no_speech_prob;
+    if (noSpeechProbability > silenceThreshold) {
+      console.log("But is unlikely speech, discarding...")
       return '';
     }
     return result.text;
@@ -189,7 +189,7 @@ const App = () => {
         await convertPcmToMp3(update);
         console.log('newPath: ' + targetPath);
         const res = await whisperRestCall(targetPath);
-        const text = await filterResult(res);
+        const text = await res.text; //filterResult(res);
         console.log('res :' + text);
         if (!blacklist.includes(text)) {
           setResults(currentText => currentText + ' ' + text);
