@@ -37,6 +37,7 @@ const App = () => {
   const [logs, setLogs] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [targetPath, setTargetPath] = useState(' ');
+  const [modalTextInput, setModalTextInput] = useState(null);
   const [apiKey, setApiKey] = useState(null);
 
   //Used to filter output from Whisper AI that it believes is silence
@@ -204,7 +205,33 @@ const App = () => {
 
   return (
     <SafeAreaView style={styles.background}>
-      <Modal />
+      <Modal visible={apiKey == null} transparent={true}>
+        <View style={styles.modalViewOuter}>
+          <BlurView
+            style={styles.absolute}
+            blurType="light"
+            blurAmount={10}
+            reducedTransparencyFallbackColor="white"
+          />
+          <Text>
+            Enter your API key retrieved from OpenAPI. Please note that this key
+            will only be stored on your local device, and not by us!{' '}
+          </Text>
+          <TextInput
+            style={{borderWidth: 1, padding: 10, width: 350, margin: 12}}
+            onChangeText={text => {
+              setModalTextInput(text);
+            }}
+          />
+          <Button
+            title={'Enter'}
+            onPress={() => {
+              saveData('api', modalTextInput);
+              setApiKey(modalTextInput);
+            }}
+          />
+        </View>
+      </Modal>
       <Text style={styles.header}>Speech Transcriber</Text>
       <View style={styles.container}>
         <Text style={styles.logs}>{logs}</Text>
@@ -269,12 +296,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#d76a74',
   },
+  modalViewOuter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+    flexDirection: 'column',
+  },
   modalViewInner: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 22,
     padding: 33,
+  },
+  blur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
   },
 });
 
