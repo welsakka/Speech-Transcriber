@@ -6,3 +6,6 @@ An ongoing project, making use of OpenAI's Whisper AI by capturing speech on you
 Requires a funded OpenAI account to use their API, and an API key. Go to their documentation for more info:
 
 https://platform.openai.com/docs/api-reference/authentication
+
+### How to Download
+The APK for Android is available to download in the Releases page for this project
