@@ -1,4 +1,4 @@
-# Whisper Speech AI App
+# Whisper AI Speech Transcriber
 ### Transcribe Speech on Your Phone using OpenAI's Whisper 
 
 An ongoing project, making use of OpenAI's Whisper AI by capturing speech on your phone and collect results. Currently available for Android. iOS is a work in progress.
